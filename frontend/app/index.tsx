@@ -238,6 +238,17 @@ export default function OnboardingScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {/* Skip Button for Testing */}
+          <TouchableOpacity 
+            style={styles.skipButton} 
+            onPress={() => {
+              console.log('Skip button clicked, navigating to /jobs');
+              router.push('/jobs');
+            }}
+          >
+            <Text style={styles.skipButtonText}>Skip for now (Testing)</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
