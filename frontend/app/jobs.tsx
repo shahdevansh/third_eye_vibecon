@@ -364,6 +364,21 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 12,
   },
+  urlContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 12,
+    gap: 6,
+  },
+  urlText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#6366f1',
+    fontWeight: '500',
+  },
   relevanceBar: {
     height: 4,
     backgroundColor: '#e2e8f0',
