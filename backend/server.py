@@ -137,7 +137,8 @@ async def search_jobs_parallel_ai(objective: str, max_results: int = 10) -> List
             "https://api.parallel.ai/v1beta/search",
             headers={
                 "x-api-key": PARALLEL_API_KEY,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "parallel-beta": "search-extract-2025-10-10"
             },
             json={
                 "mode": "one-shot",
