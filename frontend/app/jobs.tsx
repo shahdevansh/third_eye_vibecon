@@ -145,8 +145,24 @@ export default function JobsScreen() {
                 </View>
               )}
 
-              <Text style={styles.description} numberOfLines={3}>
-                {job.description}
+              {/* Extract and display "Why Apply" reasoning if present */}
+              {job.description && job.description.includes('**Why Apply:**') && (
+                <View style={styles.reasoningBox}>
+                  <View style={styles.reasoningHeader}>
+                    <Ionicons name="checkmark-circle" size={18} color="#059669" />
+                    <Text style={styles.reasoningTitle}>Why This Match?</Text>
+                  </View>
+                  <Text style={styles.reasoningText}>
+                    {job.description.split('**Why Apply:**')[1].split('\n\n')[0].trim()}
+                  </Text>
+                </View>
+              )}
+
+              <Text style={styles.description} numberOfLines={job.description.includes('**Why Apply:**') ? 2 : 3}>
+                {job.description.includes('**Why Apply:**') 
+                  ? job.description.split('\n\n').slice(1).join('\n\n')
+                  : job.description
+                }
               </Text>
 
               {/* Job URL Display */}
