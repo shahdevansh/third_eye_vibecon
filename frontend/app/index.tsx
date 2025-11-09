@@ -37,6 +37,10 @@ export default function OnboardingScreen() {
   };
 
   const handleUploadAndContinue = async () => {
+    console.log('Button clicked!');
+    console.log('Selected file:', selectedFile);
+    console.log('Backend URL:', EXPO_PUBLIC_BACKEND_URL);
+    
     if (!selectedFile) {
       Alert.alert('Error', 'Please upload your resume first');
       return;
@@ -44,6 +48,8 @@ export default function OnboardingScreen() {
 
     setUploading(true);
     try {
+      console.log('Starting upload...');
+      
       // Upload resume
       const formData = new FormData();
       formData.append('file', {
@@ -52,14 +58,22 @@ export default function OnboardingScreen() {
         type: selectedFile.mimeType || 'application/pdf',
       } as any);
 
+      console.log('Uploading to:', `${EXPO_PUBLIC_BACKEND_URL}/api/upload-resume`);
       const uploadResponse = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/upload-resume`, {
         method: 'POST',
         body: formData,
       });
 
+      console.log('Upload response status:', uploadResponse.status);
+      
       if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('Upload error:', errorText);
         throw new Error('Failed to upload resume');
       }
+
+      const uploadData = await uploadResponse.json();
+      console.log('Upload success:', uploadData);
 
       // Save preferences
       const prefsData = {
@@ -71,6 +85,7 @@ export default function OnboardingScreen() {
         job_titles: preferences.job_titles ? preferences.job_titles.split(',').map(j => j.trim()) : []
       };
 
+      console.log('Saving preferences:', prefsData);
       const prefsResponse = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/preferences`, {
         method: 'POST',
         headers: {
@@ -79,16 +94,24 @@ export default function OnboardingScreen() {
         body: JSON.stringify(prefsData),
       });
 
+      console.log('Preferences response status:', prefsResponse.status);
+      
       if (!prefsResponse.ok) {
+        const errorText = await prefsResponse.text();
+        console.error('Preferences error:', errorText);
         throw new Error('Failed to save preferences');
       }
 
+      console.log('All data saved successfully!');
       Alert.alert('Success', 'Profile created successfully!', [
-        { text: 'OK', onPress: () => router.push('/jobs') }
+        { text: 'OK', onPress: () => {
+          console.log('Navigating to /jobs');
+          router.push('/jobs');
+        }}
       ]);
     } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'Failed to create profile. Please try again.');
+      console.error('Error in handleUploadAndContinue:', error);
+      Alert.alert('Error', `Failed to create profile: ${error.message}`);
     } finally {
       setUploading(false);
     }
