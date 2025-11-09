@@ -401,44 +401,67 @@ async def get_profile():
 
 @api_router.get("/jobs", response_model=JobSearchResponse)
 async def search_jobs():
-    """Search for jobs based on user profile"""
+    """Search for jobs with intelligent matching and ranking"""
     try:
         # Get user profile
         profile = await db.user_profiles.find_one()
         
-        # Build search objective based on profile (if available)
-        objective_parts = ["Find job postings for software engineering and tech roles"]
+        resume_text = profile.get('resume_text', '') if profile else ''
         
+        # Extract structured context from resume
+        logger.info("Extracting resume context...")
+        resume_context = await extract_resume_context(resume_text) if resume_text else None
+        
+        # Build smart search objective using resume context
+        objective_parts = []
+        
+        if resume_context:
+            # Use AI-extracted information
+            if resume_context.get('current_role'):
+                objective_parts.append(f"Find job postings for {resume_context['current_role']} and similar roles")
+            
+            if resume_context.get('key_skills'):
+                skills_str = ', '.join(resume_context['key_skills'][:5])
+                objective_parts.append(f"requiring skills in {skills_str}")
+            
+            if resume_context.get('industries'):
+                industries_str = ', '.join(resume_context['industries'][:2])
+                objective_parts.append(f"in {industries_str} industry")
+            
+            if resume_context.get('experience_years'):
+                exp = resume_context['experience_years']
+                level = "senior" if exp >= 7 else "mid-level" if exp >= 3 else "junior"
+                objective_parts.append(f"at {level} level")
+        
+        # Add user preferences
         if profile and profile.get('job_titles'):
-            objective_parts = [f"Find job postings for {', '.join(profile['job_titles'][:3])}"]
+            objective_parts.append(f"including roles: {', '.join(profile['job_titles'][:3])}")
         
         if profile and profile.get('locations'):
-            objective_parts.append(f"in {', '.join(profile['locations'][:3])}")
+            objective_parts.append(f"located in {', '.join(profile['locations'][:3])}")
         
-        if profile and profile.get('industries'):
-            objective_parts.append(f"in {', '.join(profile['industries'][:3])} industry")
+        if not objective_parts:
+            objective_parts = ["Find software engineering and tech job postings"]
         
-        objective_parts.append("posted recently on company career pages and job boards.")
-        objective_parts.append("Each result must include: job title, company name, location, full job description, and direct application URL.")
+        objective_parts.append("posted recently on company career pages and job boards with full job descriptions and application URLs.")
         
         objective = " ".join(objective_parts)
-        logger.info(f"Search objective: {objective}")
+        logger.info(f"Smart search objective: {objective}")
         
-        # Search using Parallel AI
-        results = await search_jobs_parallel_ai(objective, max_results=10)
+        # Search using Parallel AI - get 20-25 results
+        results = await search_jobs_parallel_ai(objective, max_results=25)
+        logger.info(f"Retrieved {len(results)} jobs from Parallel AI")
         
-        # Parse results and create Job objects with better extraction
-        jobs = []
+        # Parse all results
+        all_jobs = []
         for idx, result in enumerate(results):
             try:
-                # Extract information from result
                 content = result.get('content', '')
                 excerpts = result.get('excerpts', [])
                 url = result.get('url', '')
                 title = result.get('title', '')
                 source = result.get('source', '')
                 
-                # Build description from content and excerpts
                 description_parts = []
                 if content:
                     description_parts.append(content)
@@ -446,48 +469,150 @@ async def search_jobs():
                     description_parts.extend(excerpts)
                 
                 full_description = ' '.join(description_parts)
-                
-                # Extract job title from title or content
                 job_title = title if title else f"Position at {source}"
-                
-                # Extract company name from source or URL
                 company_name = source if source else url.split('/')[2] if url else 'Company'
                 
-                # Try to extract location from content
                 location = None
-                common_locations = ['Remote', 'San Francisco', 'New York', 'Los Angeles', 'Seattle', 'Austin', 'Boston']
+                common_locations = ['Remote', 'San Francisco', 'New York', 'Los Angeles', 'Seattle', 'Austin', 'Boston', 'Denver', 'Chicago']
                 for loc in common_locations:
                     if loc.lower() in full_description.lower():
                         location = loc
                         break
                 
-                # Create job object
                 job = Job(
                     title=job_title,
                     company=company_name,
                     location=location,
-                    description=full_description[:1000] if full_description else "No description available",
+                    description=full_description[:2000] if full_description else "No description available",
                     url=url,
                     posted_date="Recently posted",
-                    relevance_score=round(1.0 - (idx * 0.08), 2)
+                    relevance_score=0.0  # Will be calculated
                 )
-                jobs.append(job)
-                
-                logger.info(f"Parsed job {idx + 1}: {job.title} at {job.company} - {job.url}")
+                all_jobs.append(job)
                 
             except Exception as parse_error:
                 logger.error(f"Error parsing job result {idx}: {str(parse_error)}")
                 continue
         
-        # Store in database
-        await db.jobs.delete_many({})  # Clear old jobs
-        if jobs:
-            await db.jobs.insert_many([job.dict() for job in jobs])
+        logger.info(f"Successfully parsed {len(all_jobs)} jobs")
         
-        logger.info(f"Successfully parsed {len(jobs)} jobs")
-        return JobSearchResponse(jobs=jobs, count=len(jobs))
+        # Semantic reranking with vectorization
+        if resume_text and len(all_jobs) > 0:
+            logger.info("Performing semantic reranking...")
+            
+            try:
+                # Prepare texts for embedding
+                job_texts = [f"{job.title} at {job.company}. {job.description[:500]}" for job in all_jobs]
+                resume_summary = resume_context.get('summary', resume_text[:500]) if resume_context else resume_text[:500]
+                
+                # Get embeddings
+                logger.info("Getting embeddings...")
+                all_texts = [resume_summary] + job_texts
+                embeddings = await get_embeddings(all_texts)
+                
+                resume_embedding = embeddings[0]
+                job_embeddings = embeddings[1:]
+                
+                # Calculate cosine similarity
+                import numpy as np
+                from sklearn.metrics.pairwise import cosine_similarity
+                
+                resume_vec = np.array(resume_embedding).reshape(1, -1)
+                job_vecs = np.array(job_embeddings)
+                
+                similarities = cosine_similarity(resume_vec, job_vecs)[0]
+                
+                # Assign similarity scores
+                for job, sim_score in zip(all_jobs, similarities):
+                    job.relevance_score = float(sim_score)
+                
+                # Also consider user preferences in scoring
+                if profile:
+                    for job in all_jobs:
+                        bonus = 0.0
+                        
+                        # Location match
+                        if profile.get('locations') and job.location:
+                            if any(loc.lower() in job.location.lower() for loc in profile['locations']):
+                                bonus += 0.1
+                        
+                        # Job title match
+                        if profile.get('job_titles'):
+                            if any(title.lower() in job.title.lower() for title in profile['job_titles']):
+                                bonus += 0.15
+                        
+                        # Industry match
+                        if profile.get('industries') and resume_context and resume_context.get('industries'):
+                            if any(ind.lower() in job.description.lower() for ind in profile['industries']):
+                                bonus += 0.1
+                        
+                        job.relevance_score = min(1.0, job.relevance_score + bonus)
+                
+                # Sort by relevance score
+                all_jobs.sort(key=lambda x: x.relevance_score, reverse=True)
+                logger.info("Semantic reranking complete")
+                
+            except Exception as rank_error:
+                logger.error(f"Error in semantic reranking: {str(rank_error)}")
+                # Fallback to original order
+                for idx, job in enumerate(all_jobs):
+                    job.relevance_score = round(1.0 - (idx * 0.04), 2)
+        else:
+            # No resume, use simple ranking
+            for idx, job in enumerate(all_jobs):
+                job.relevance_score = round(1.0 - (idx * 0.04), 2)
+        
+        # Get top 3 jobs with reasoning
+        top_jobs = all_jobs[:3]
+        
+        if resume_context and top_jobs:
+            logger.info("Generating match reasoning...")
+            try:
+                # Generate reasoning for each top job
+                for job in top_jobs:
+                    reasoning_prompt = f"""Explain in 2-3 sentences why this job is a great match for the candidate:
+
+Candidate Profile:
+- Role: {resume_context.get('current_role', 'Professional')}
+- Experience: {resume_context.get('experience_years', 'Several')} years
+- Key Skills: {', '.join(resume_context.get('key_skills', [])[:5])}
+- Education: {resume_context.get('education', 'Degree holder')}
+
+Job:
+- Title: {job.title}
+- Company: {job.company}
+- Description: {job.description[:300]}
+
+Focus on skill alignment, experience match, and growth opportunity. Be specific and compelling."""
+
+                    chat = LlmChat(
+                        api_key=EMERGENT_LLM_KEY,
+                        session_id=str(uuid.uuid4()),
+                        system_message="You are a career advisor providing match reasoning."
+                    ).with_model("openai", "gpt-4o-mini")
+                    
+                    reasoning = await chat.send_message(UserMessage(text=reasoning_prompt))
+                    
+                    # Store reasoning in job description (temporary solution)
+                    job.description = f"**Why Apply:** {reasoning}\n\n{job.description}"
+                
+                logger.info("Reasoning generated for top 3 jobs")
+            except Exception as reason_error:
+                logger.error(f"Error generating reasoning: {str(reason_error)}")
+        
+        # Store all jobs in database
+        await db.jobs.delete_many({})
+        if all_jobs:
+            await db.jobs.insert_many([job.dict() for job in all_jobs])
+        
+        # Return only top 3 with reasoning
+        logger.info(f"Returning top {len(top_jobs)} jobs with match reasoning")
+        return JobSearchResponse(jobs=top_jobs, count=len(top_jobs))
+        
     except Exception as e:
         logger.error(f"Error searching jobs: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/tailor-resume")
