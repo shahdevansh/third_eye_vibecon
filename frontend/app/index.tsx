@@ -74,57 +74,75 @@ export default function OnboardingScreen() {
   };
 
   const handleUploadAndContinue = async () => {
-    if (!selectedFile) {
-      Alert.alert('Upload Required', 'Please upload your resume to continue');
-      return;
-    }
-
+    console.log('handleUploadAndContinue called');
+    console.log('Selected file:', selectedFile);
+    
     setUploading(true);
     try {
-      // Upload resume
-      const formData = new FormData();
-      formData.append('file', {
-        uri: selectedFile.uri,
-        name: selectedFile.name,
-        type: selectedFile.mimeType || 'application/pdf',
-      } as any);
+      // Only upload resume if file is selected
+      if (selectedFile) {
+        console.log('Uploading resume...');
+        const formData = new FormData();
+        formData.append('file', {
+          uri: selectedFile.uri,
+          name: selectedFile.name,
+          type: selectedFile.mimeType || 'application/pdf',
+        } as any);
 
-      const uploadResponse = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/upload-resume`, {
-        method: 'POST',
-        body: formData,
-      });
+        const uploadResponse = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/upload-resume`, {
+          method: 'POST',
+          body: formData,
+        });
 
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload resume');
+        console.log('Upload response status:', uploadResponse.status);
+        
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error('Upload error:', errorText);
+          Alert.alert('Warning', 'Resume upload failed. Continuing without resume.');
+        } else {
+          console.log('Resume uploaded successfully');
+        }
+      } else {
+        console.log('No file selected, skipping upload');
       }
 
-      // Save preferences
-      const prefsData = {
-        salary_min: salaryMin ? parseInt(salaryMin) : null,
-        salary_max: salaryMax ? parseInt(salaryMax) : null,
-        locations: selectedLocations,
-        startup_stages: selectedStages,
-        industries: selectedIndustries,
-        job_titles: selectedJobTitles
-      };
+      // Save preferences (optional)
+      if (selectedJobTitles.length > 0 || selectedLocations.length > 0 || selectedIndustries.length > 0 || selectedStages.length > 0) {
+        console.log('Saving preferences...');
+        const prefsData = {
+          salary_min: salaryMin ? parseInt(salaryMin) : null,
+          salary_max: salaryMax ? parseInt(salaryMax) : null,
+          locations: selectedLocations,
+          startup_stages: selectedStages,
+          industries: selectedIndustries,
+          job_titles: selectedJobTitles
+        };
 
-      const prefsResponse = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/preferences`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(prefsData),
-      });
+        const prefsResponse = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/preferences`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(prefsData),
+        });
 
-      if (!prefsResponse.ok) {
-        throw new Error('Failed to save preferences');
+        console.log('Preferences response status:', prefsResponse.status);
+        
+        if (prefsResponse.ok) {
+          console.log('Preferences saved successfully');
+        }
       }
 
-      // Navigate to jobs screen
+      // Always navigate to jobs screen
+      console.log('Navigating to /jobs');
       router.push('/jobs');
+      console.log('Navigation called');
     } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', `Failed to create profile: ${error.message}`);
+      console.error('Error in handleUploadAndContinue:', error);
+      // Still navigate even if there's an error
+      console.log('Error occurred, but navigating anyway');
+      router.push('/jobs');
     } finally {
       setUploading(false);
     }
