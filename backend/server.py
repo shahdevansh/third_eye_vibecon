@@ -343,23 +343,21 @@ async def search_jobs():
     try:
         # Get user profile
         profile = await db.user_profiles.find_one()
-        if not profile or not profile.get('resume_text'):
-            raise HTTPException(status_code=400, detail="Please upload resume first")
         
-        # Build search objective
-        objective_parts = ["Find the top 10 most relevant job postings"]
+        # Build search objective based on profile (if available)
+        objective_parts = ["Find job postings for software engineering and tech roles"]
         
-        if profile.get('job_titles'):
-            objective_parts.append(f"for roles like {', '.join(profile['job_titles'])}")
+        if profile and profile.get('job_titles'):
+            objective_parts = [f"Find job postings for {', '.join(profile['job_titles'][:3])}"]
         
-        if profile.get('locations'):
-            objective_parts.append(f"in {', '.join(profile['locations'])}")
+        if profile and profile.get('locations'):
+            objective_parts.append(f"in {', '.join(profile['locations'][:3])}")
         
-        if profile.get('salary_min'):
-            objective_parts.append(f"with salary above ${profile['salary_min']:,}")
+        if profile and profile.get('industries'):
+            objective_parts.append(f"in {', '.join(profile['industries'][:3])} industry")
         
-        objective_parts.append("posted in the last 24 hours from startup and tech company career pages.")
-        objective_parts.append("Include job title, company name, location, job description, and apply URL.")
+        objective_parts.append("posted recently on company career pages and job boards.")
+        objective_parts.append("Each result must include: job title, company name, location, full job description, and direct application URL.")
         
         objective = " ".join(objective_parts)
         logger.info(f"Search objective: {objective}")
@@ -367,30 +365,64 @@ async def search_jobs():
         # Search using Parallel AI
         results = await search_jobs_parallel_ai(objective, max_results=10)
         
-        # Parse results and create Job objects
+        # Parse results and create Job objects with better extraction
         jobs = []
         for idx, result in enumerate(results):
-            # Extract information from result
-            content = result.get('content', '')
-            url = result.get('url', '')
-            
-            # Simple parsing - in production, use more sophisticated extraction
-            job = Job(
-                title=result.get('title', f"Job {idx + 1}"),
-                company=result.get('source', 'Unknown Company'),
-                location=None,
-                description=content[:500] if content else "No description available",
-                url=url,
-                posted_date="Last 24 hours",
-                relevance_score=1.0 - (idx * 0.1)
-            )
-            jobs.append(job)
+            try:
+                # Extract information from result
+                content = result.get('content', '')
+                excerpts = result.get('excerpts', [])
+                url = result.get('url', '')
+                title = result.get('title', '')
+                source = result.get('source', '')
+                
+                # Build description from content and excerpts
+                description_parts = []
+                if content:
+                    description_parts.append(content)
+                if excerpts:
+                    description_parts.extend(excerpts)
+                
+                full_description = ' '.join(description_parts)
+                
+                # Extract job title from title or content
+                job_title = title if title else f"Position at {source}"
+                
+                # Extract company name from source or URL
+                company_name = source if source else url.split('/')[2] if url else 'Company'
+                
+                # Try to extract location from content
+                location = None
+                common_locations = ['Remote', 'San Francisco', 'New York', 'Los Angeles', 'Seattle', 'Austin', 'Boston']
+                for loc in common_locations:
+                    if loc.lower() in full_description.lower():
+                        location = loc
+                        break
+                
+                # Create job object
+                job = Job(
+                    title=job_title,
+                    company=company_name,
+                    location=location,
+                    description=full_description[:1000] if full_description else "No description available",
+                    url=url,
+                    posted_date="Recently posted",
+                    relevance_score=round(1.0 - (idx * 0.08), 2)
+                )
+                jobs.append(job)
+                
+                logger.info(f"Parsed job {idx + 1}: {job.title} at {job.company} - {job.url}")
+                
+            except Exception as parse_error:
+                logger.error(f"Error parsing job result {idx}: {str(parse_error)}")
+                continue
         
         # Store in database
         await db.jobs.delete_many({})  # Clear old jobs
         if jobs:
             await db.jobs.insert_many([job.dict() for job in jobs])
         
+        logger.info(f"Successfully parsed {len(jobs)} jobs")
         return JobSearchResponse(jobs=jobs, count=len(jobs))
     except Exception as e:
         logger.error(f"Error searching jobs: {str(e)}")
