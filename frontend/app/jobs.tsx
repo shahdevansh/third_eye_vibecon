@@ -149,6 +149,20 @@ export default function JobsScreen() {
                 {job.description}
               </Text>
 
+              {/* Job URL Display */}
+              {job.url && (
+                <TouchableOpacity 
+                  style={styles.urlContainer}
+                  onPress={() => openJobUrl(job.url)}
+                >
+                  <Ionicons name="link" size={14} color="#6366f1" />
+                  <Text style={styles.urlText} numberOfLines={1}>
+                    {job.url}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={14} color="#6366f1" />
+                </TouchableOpacity>
+              )}
+
               {job.relevance_score && (
                 <View style={styles.relevanceBar}>
                   <View style={[styles.relevanceFill, { width: `${job.relevance_score * 100}%` }]} />
@@ -161,7 +175,7 @@ export default function JobsScreen() {
                   onPress={() => openJobUrl(job.url)}
                 >
                   <Ionicons name="open-outline" size={16} color="#6366f1" />
-                  <Text style={styles.viewJobText}>View Job</Text>
+                  <Text style={styles.viewJobText}>Apply Now</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
