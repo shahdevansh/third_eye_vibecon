@@ -69,7 +69,7 @@ export default function JobsScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Job Search</Text>
-          <Text style={styles.subtitle}>Top 10 matches for you</Text>
+          <Text style={styles.subtitle}>Top 3 AI-matched jobs with reasoning</Text>
         </View>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1e293b" />
