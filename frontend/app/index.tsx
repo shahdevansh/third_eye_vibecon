@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     color: '#475569',
     marginBottom: 8,
   },
-  input: {
+  textInput: {
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 8,
@@ -313,6 +313,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1e293b',
     backgroundColor: '#ffffff',
+    minHeight: 44,
   },
   row: {
     flexDirection: 'row',
