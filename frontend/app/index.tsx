@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
-    marginBottom: 32,
+    marginBottom: 12,
   },
   buttonDisabled: {
     backgroundColor: '#94a3b8',
@@ -374,5 +374,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
+  },
+  skipButton: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 32,
+  },
+  skipButtonText: {
+    color: '#64748b',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
