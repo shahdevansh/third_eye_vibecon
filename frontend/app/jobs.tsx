@@ -374,6 +374,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
+  reasoningBox: {
+    backgroundColor: '#ecfdf5',
+    borderLeftWidth: 3,
+    borderLeftColor: '#059669',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  reasoningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 6,
+  },
+  reasoningTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  reasoningText: {
+    fontSize: 13,
+    color: '#047857',
+    lineHeight: 18,
+  },
   description: {
     fontSize: 14,
     color: '#475569',
