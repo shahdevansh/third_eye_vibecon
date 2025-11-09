@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 // Predefined options
-const INDUSTRY_OPTIONS = ['Technology', 'Finance', 'Healthcare', 'E-commerce', 'SaaS', 'Artificial Intelligence', 'Fintech', 'EdTech', 'Gaming', 'Cybersecurity', 'Marketing', 'Retail'];
+const INDUSTRY_OPTIONS = ['Technology', 'Finance', 'Healthcare', 'E-commerce', 'SaaS', 'AI/ML', 'Fintech', 'EdTech', 'Gaming', 'Cybersecurity', 'Marketing', 'Retail'];
 const STARTUP_STAGE_OPTIONS = ['Seed', 'Series A', 'Series B', 'Series C', 'Series D+', 'Growth', 'Pre-IPO', 'Public'];
 const LOCATION_SUGGESTIONS = ['San Francisco, CA', 'New York, NY', 'Remote', 'Los Angeles, CA', 'Seattle, WA', 'Austin, TX', 'Boston, MA', 'Chicago, IL', 'Denver, CO', 'Miami, FL'];
 const JOB_TITLE_SUGGESTIONS = ['Software Engineer', 'Senior Software Engineer', 'Full Stack Developer', 'Backend Engineer', 'Frontend Engineer', 'Product Manager', 'Engineering Manager', 'Data Scientist', 'DevOps Engineer', 'Mobile Developer'];
@@ -49,20 +49,38 @@ export default function OnboardingScreen() {
     }
   };
 
+  const toggleSelection = (item: string, selected: string[], setSelected: (items: string[]) => void) => {
+    if (selected.includes(item)) {
+      setSelected(selected.filter(i => i !== item));
+    } else {
+      setSelected([...selected, item]);
+    }
+  };
+
+  const addLocation = (location: string) => {
+    if (location.trim() && !selectedLocations.includes(location.trim())) {
+      setSelectedLocations([...selectedLocations, location.trim()]);
+      setLocationInput('');
+      setShowLocationSuggestions(false);
+    }
+  };
+
+  const addJobTitle = (title: string) => {
+    if (title.trim() && !selectedJobTitles.includes(title.trim())) {
+      setSelectedJobTitles([...selectedJobTitles, title.trim()]);
+      setJobTitleInput('');
+      setShowJobTitleSuggestions(false);
+    }
+  };
+
   const handleUploadAndContinue = async () => {
-    console.log('Button clicked!');
-    console.log('Selected file:', selectedFile);
-    console.log('Backend URL:', EXPO_PUBLIC_BACKEND_URL);
-    
     if (!selectedFile) {
-      Alert.alert('Error', 'Please upload your resume first');
+      Alert.alert('Upload Required', 'Please upload your resume to continue');
       return;
     }
 
     setUploading(true);
     try {
-      console.log('Starting upload...');
-      
       // Upload resume
       const formData = new FormData();
       formData.append('file', {
@@ -71,34 +89,25 @@ export default function OnboardingScreen() {
         type: selectedFile.mimeType || 'application/pdf',
       } as any);
 
-      console.log('Uploading to:', `${EXPO_PUBLIC_BACKEND_URL}/api/upload-resume`);
       const uploadResponse = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/upload-resume`, {
         method: 'POST',
         body: formData,
       });
 
-      console.log('Upload response status:', uploadResponse.status);
-      
       if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('Upload error:', errorText);
         throw new Error('Failed to upload resume');
       }
 
-      const uploadData = await uploadResponse.json();
-      console.log('Upload success:', uploadData);
-
       // Save preferences
       const prefsData = {
-        salary_min: preferences.salary_min ? parseInt(preferences.salary_min) : null,
-        salary_max: preferences.salary_max ? parseInt(preferences.salary_max) : null,
-        locations: preferences.locations ? preferences.locations.split(',').map(l => l.trim()) : [],
-        startup_stages: preferences.startup_stages ? preferences.startup_stages.split(',').map(s => s.trim()) : [],
-        industries: preferences.industries ? preferences.industries.split(',').map(i => i.trim()) : [],
-        job_titles: preferences.job_titles ? preferences.job_titles.split(',').map(j => j.trim()) : []
+        salary_min: salaryMin ? parseInt(salaryMin) : null,
+        salary_max: salaryMax ? parseInt(salaryMax) : null,
+        locations: selectedLocations,
+        startup_stages: selectedStages,
+        industries: selectedIndustries,
+        job_titles: selectedJobTitles
       };
 
-      console.log('Saving preferences:', prefsData);
       const prefsResponse = await fetch(`${EXPO_PUBLIC_BACKEND_URL}/api/profile/preferences`, {
         method: 'POST',
         headers: {
@@ -107,28 +116,37 @@ export default function OnboardingScreen() {
         body: JSON.stringify(prefsData),
       });
 
-      console.log('Preferences response status:', prefsResponse.status);
-      
       if (!prefsResponse.ok) {
-        const errorText = await prefsResponse.text();
-        console.error('Preferences error:', errorText);
         throw new Error('Failed to save preferences');
       }
 
-      console.log('All data saved successfully!');
-      Alert.alert('Success', 'Profile created successfully!', [
-        { text: 'OK', onPress: () => {
-          console.log('Navigating to /jobs');
-          router.push('/jobs');
-        }}
-      ]);
+      // Navigate to jobs screen
+      router.push('/jobs');
     } catch (error) {
-      console.error('Error in handleUploadAndContinue:', error);
+      console.error('Error:', error);
       Alert.alert('Error', `Failed to create profile: ${error.message}`);
     } finally {
       setUploading(false);
     }
   };
+
+  const handleSkip = () => {
+    router.push('/jobs');
+  };
+
+  const filteredLocationSuggestions = locationInput
+    ? LOCATION_SUGGESTIONS.filter(loc => 
+        loc.toLowerCase().includes(locationInput.toLowerCase()) &&
+        !selectedLocations.includes(loc)
+      )
+    : LOCATION_SUGGESTIONS.filter(loc => !selectedLocations.includes(loc));
+
+  const filteredJobTitleSuggestions = jobTitleInput
+    ? JOB_TITLE_SUGGESTIONS.filter(title => 
+        title.toLowerCase().includes(jobTitleInput.toLowerCase()) &&
+        !selectedJobTitles.includes(title)
+      )
+    : JOB_TITLE_SUGGESTIONS.filter(title => !selectedJobTitles.includes(title));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -167,36 +185,107 @@ export default function OnboardingScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Job Preferences</Text>
             
+            {/* Job Titles with Autocomplete */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Job Titles (comma-separated)</Text>
+              <Text style={styles.label}>Job Titles</Text>
+              {selectedJobTitles.length > 0 && (
+                <View style={styles.pillContainer}>
+                  {selectedJobTitles.map((title) => (
+                    <View key={title} style={styles.pill}>
+                      <Text style={styles.pillText}>{title}</Text>
+                      <TouchableOpacity
+                        onPress={() => setSelectedJobTitles(selectedJobTitles.filter(t => t !== title))}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons name="close" size={16} color="#6366f1" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
               <TextInput
                 style={styles.textInput}
-                placeholder="e.g., Software Engineer, Product Manager"
-                value={preferences.job_titles}
-                onChangeText={(text) => setPreferences({...preferences, job_titles: text})}
-                multiline
+                placeholder="Type to search or add custom..."
+                value={jobTitleInput}
+                onChangeText={setJobTitleInput}
+                onFocus={() => setShowJobTitleSuggestions(true)}
+                onSubmitEditing={() => {
+                  if (jobTitleInput.trim()) {
+                    addJobTitle(jobTitleInput);
+                  }
+                }}
               />
+              {showJobTitleSuggestions && filteredJobTitleSuggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {filteredJobTitleSuggestions.slice(0, 5).map((title) => (
+                    <TouchableOpacity
+                      key={title}
+                      style={styles.suggestionItem}
+                      onPress={() => addJobTitle(title)}
+                    >
+                      <Ionicons name="add-circle-outline" size={20} color="#6366f1" />
+                      <Text style={styles.suggestionText}>{title}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
 
+            {/* Locations with Autocomplete */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Locations (comma-separated)</Text>
+              <Text style={styles.label}>Locations</Text>
+              {selectedLocations.length > 0 && (
+                <View style={styles.pillContainer}>
+                  {selectedLocations.map((location) => (
+                    <View key={location} style={styles.pill}>
+                      <Text style={styles.pillText}>{location}</Text>
+                      <TouchableOpacity
+                        onPress={() => setSelectedLocations(selectedLocations.filter(l => l !== location))}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons name="close" size={16} color="#6366f1" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
               <TextInput
                 style={styles.textInput}
-                placeholder="e.g., San Francisco, Remote, New York"
-                value={preferences.locations}
-                onChangeText={(text) => setPreferences({...preferences, locations: text})}
-                multiline
+                placeholder="Type to search or add custom..."
+                value={locationInput}
+                onChangeText={setLocationInput}
+                onFocus={() => setShowLocationSuggestions(true)}
+                onSubmitEditing={() => {
+                  if (locationInput.trim()) {
+                    addLocation(locationInput);
+                  }
+                }}
               />
+              {showLocationSuggestions && filteredLocationSuggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {filteredLocationSuggestions.slice(0, 5).map((location) => (
+                    <TouchableOpacity
+                      key={location}
+                      style={styles.suggestionItem}
+                      onPress={() => addLocation(location)}
+                    >
+                      <Ionicons name="add-circle-outline" size={20} color="#6366f1" />
+                      <Text style={styles.suggestionText}>{location}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
 
+            {/* Salary Range */}
             <View style={styles.row}>
               <View style={[styles.inputGroup, styles.halfWidth]}>
                 <Text style={styles.label}>Min Salary</Text>
                 <TextInput
                   style={styles.textInput}
                   placeholder="100000"
-                  value={preferences.salary_min}
-                  onChangeText={(text) => setPreferences({...preferences, salary_min: text})}
+                  value={salaryMin}
+                  onChangeText={setSalaryMin}
                   keyboardType="numeric"
                 />
               </View>
@@ -206,33 +295,59 @@ export default function OnboardingScreen() {
                 <TextInput
                   style={styles.textInput}
                   placeholder="200000"
-                  value={preferences.salary_max}
-                  onChangeText={(text) => setPreferences({...preferences, salary_max: text})}
+                  value={salaryMax}
+                  onChangeText={setSalaryMax}
                   keyboardType="numeric"
                 />
               </View>
             </View>
 
+            {/* Industries - Multi-select Pills */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Industries (comma-separated)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g., Technology, Finance, Healthcare"
-                value={preferences.industries}
-                onChangeText={(text) => setPreferences({...preferences, industries: text})}
-                multiline
-              />
+              <Text style={styles.label}>Industries</Text>
+              <View style={styles.pillContainer}>
+                {INDUSTRY_OPTIONS.map((industry) => (
+                  <TouchableOpacity
+                    key={industry}
+                    style={[
+                      styles.selectablePill,
+                      selectedIndustries.includes(industry) && styles.selectablePillActive
+                    ]}
+                    onPress={() => toggleSelection(industry, selectedIndustries, setSelectedIndustries)}
+                  >
+                    <Text style={[
+                      styles.selectablePillText,
+                      selectedIndustries.includes(industry) && styles.selectablePillTextActive
+                    ]}>
+                      {industry}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
+            {/* Startup Stages - Multi-select Pills */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Startup Stages (comma-separated)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g., Series A, Series B, Growth"
-                value={preferences.startup_stages}
-                onChangeText={(text) => setPreferences({...preferences, startup_stages: text})}
-                multiline
-              />
+              <Text style={styles.label}>Startup Stages</Text>
+              <View style={styles.pillContainer}>
+                {STARTUP_STAGE_OPTIONS.map((stage) => (
+                  <TouchableOpacity
+                    key={stage}
+                    style={[
+                      styles.selectablePill,
+                      selectedStages.includes(stage) && styles.selectablePillActive
+                    ]}
+                    onPress={() => toggleSelection(stage, selectedStages, setSelectedStages)}
+                  >
+                    <Text style={[
+                      styles.selectablePillText,
+                      selectedStages.includes(stage) && styles.selectablePillTextActive
+                    ]}>
+                      {stage}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
 
@@ -253,13 +368,7 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
 
           {/* Skip Button for Testing */}
-          <TouchableOpacity 
-            style={styles.skipButton} 
-            onPress={() => {
-              console.log('Skip button clicked, navigating to /jobs');
-              router.push('/jobs');
-            }}
-          >
+          <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
             <Text style={styles.skipButtonText}>Skip for now (Testing)</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -368,6 +477,66 @@ const styles = StyleSheet.create({
   },
   halfWidth: {
     flex: 1,
+  },
+  pillContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    gap: 6,
+  },
+  pillText: {
+    fontSize: 13,
+    color: '#6366f1',
+    fontWeight: '500',
+  },
+  selectablePill: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+  },
+  selectablePillActive: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+  },
+  selectablePillText: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  selectablePillTextActive: {
+    color: '#ffffff',
+  },
+  suggestionsContainer: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    marginTop: 4,
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: '#1e293b',
   },
   continueButton: {
     backgroundColor: '#6366f1',
