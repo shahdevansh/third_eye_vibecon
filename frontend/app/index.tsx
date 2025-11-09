@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,18 +7,31 @@ import { useRouter } from 'expo-router';
 
 const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+// Predefined options
+const INDUSTRY_OPTIONS = ['Technology', 'Finance', 'Healthcare', 'E-commerce', 'SaaS', 'Artificial Intelligence', 'Fintech', 'EdTech', 'Gaming', 'Cybersecurity', 'Marketing', 'Retail'];
+const STARTUP_STAGE_OPTIONS = ['Seed', 'Series A', 'Series B', 'Series C', 'Series D+', 'Growth', 'Pre-IPO', 'Public'];
+const LOCATION_SUGGESTIONS = ['San Francisco, CA', 'New York, NY', 'Remote', 'Los Angeles, CA', 'Seattle, WA', 'Austin, TX', 'Boston, MA', 'Chicago, IL', 'Denver, CO', 'Miami, FL'];
+const JOB_TITLE_SUGGESTIONS = ['Software Engineer', 'Senior Software Engineer', 'Full Stack Developer', 'Backend Engineer', 'Frontend Engineer', 'Product Manager', 'Engineering Manager', 'Data Scientist', 'DevOps Engineer', 'Mobile Developer'];
+
 export default function OnboardingScreen() {
   const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
-  const [preferences, setPreferences] = useState({
-    salary_min: '',
-    salary_max: '',
-    locations: '',
-    startup_stages: '',
-    industries: '',
-    job_titles: ''
-  });
+  
+  // Multi-select state
+  const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
+  const [selectedStages, setSelectedStages] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [selectedJobTitles, setSelectedJobTitles] = useState<string[]>([]);
+  
+  // Input and suggestion state
+  const [locationInput, setLocationInput] = useState('');
+  const [jobTitleInput, setJobTitleInput] = useState('');
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [showJobTitleSuggestions, setShowJobTitleSuggestions] = useState(false);
+  
+  const [salaryMin, setSalaryMin] = useState('');
+  const [salaryMax, setSalaryMax] = useState('');
 
   const pickDocument = async () => {
     try {
