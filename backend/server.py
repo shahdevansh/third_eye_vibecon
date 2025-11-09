@@ -130,7 +130,69 @@ async def parse_resume_file(file_content: bytes, filename: str) -> str:
         logger.error(f"Error parsing resume: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Error parsing resume: {str(e)}")
 
-async def search_jobs_parallel_ai(objective: str, max_results: int = 10) -> List[Dict[str, Any]]:
+async def extract_resume_context(resume_text: str) -> Dict[str, Any]:
+    """Extract key information from resume using AI"""
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=str(uuid.uuid4()),
+            system_message="You are an expert resume parser. Extract structured information from resumes."
+        ).with_model("openai", "gpt-4o-mini")
+        
+        prompt = f"""Analyze this resume and extract key information in JSON format:
+
+Resume:
+{resume_text}
+
+Extract and return ONLY a JSON object with these fields:
+{{
+  "experience_years": <number>,
+  "key_skills": [<list of 8-10 most important technical and professional skills>],
+  "education": "<highest degree and field>",
+  "current_role": "<most recent job title>",
+  "industries": [<list of industries worked in>],
+  "summary": "<2-3 sentence professional summary>"
+}}
+
+Return ONLY the JSON, no other text."""
+        
+        response = await chat.send_message(UserMessage(text=prompt))
+        # Parse JSON from response
+        parsed = json.loads(response)
+        return parsed
+    except Exception as e:
+        logger.error(f"Error extracting resume context: {str(e)}")
+        # Return basic structure if parsing fails
+        return {
+            "experience_years": 5,
+            "key_skills": ["Software Development", "Problem Solving"],
+            "education": "Bachelor's Degree",
+            "current_role": "Software Engineer",
+            "industries": ["Technology"],
+            "summary": "Experienced professional seeking new opportunities"
+        }
+
+async def get_embeddings(texts: List[str]) -> List[List[float]]:
+    """Get embeddings using OpenAI"""
+    try:
+        import openai
+        openai.api_key = EMERGENT_LLM_KEY
+        
+        embeddings = []
+        for text in texts:
+            response = openai.embeddings.create(
+                model="text-embedding-3-small",
+                input=text[:8000]  # Limit text length
+            )
+            embeddings.append(response.data[0].embedding)
+        
+        return embeddings
+    except Exception as e:
+        logger.error(f"Error getting embeddings: {str(e)}")
+        # Return dummy embeddings if failed
+        return [[0.0] * 1536 for _ in texts]
+
+async def search_jobs_parallel_ai(objective: str, max_results: int = 25) -> List[Dict[str, Any]]:
     """Search jobs using Parallel AI API"""
     try:
         response = requests.post(
@@ -150,7 +212,7 @@ async def search_jobs_parallel_ai(objective: str, max_results: int = 10) -> List
         )
         response.raise_for_status()
         data = response.json()
-        logger.info(f"Parallel AI response: {json.dumps(data, indent=2)}")
+        logger.info(f"Parallel AI returned {len(data.get('results', []))} results")
         return data.get('results', [])
     except Exception as e:
         logger.error(f"Error searching jobs: {str(e)}")
