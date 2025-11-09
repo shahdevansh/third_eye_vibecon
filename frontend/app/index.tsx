@@ -96,158 +96,127 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Ionicons name="briefcase" size={48} color="#6366f1" />
-          <Text style={styles.title}>Welcome to Jobby</Text>
-          <Text style={styles.subtitle}>Find your perfect job match</Text>
-        </View>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoid}
+      >
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <Ionicons name="briefcase" size={48} color="#6366f1" />
+            <Text style={styles.title}>Welcome to Jobby</Text>
+            <Text style={styles.subtitle}>Find your perfect job match</Text>
+          </View>
 
-        {/* Resume Upload Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upload Your Resume</Text>
-          <TouchableOpacity style={styles.uploadButton} onPress={pickDocument}>
-            <Ionicons name="cloud-upload-outline" size={32} color="#6366f1" />
-            <Text style={styles.uploadButtonText}>
-              {selectedFile ? selectedFile.name : 'Choose PDF or DOCX file'}
-            </Text>
+          {/* Resume Upload Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Upload Your Resume</Text>
+            <TouchableOpacity style={styles.uploadButton} onPress={pickDocument}>
+              <Ionicons name="cloud-upload-outline" size={32} color="#6366f1" />
+              <Text style={styles.uploadButtonText}>
+                {selectedFile ? selectedFile.name : 'Choose PDF or DOCX file'}
+              </Text>
+            </TouchableOpacity>
+            {selectedFile && (
+              <View style={styles.fileChip}>
+                <Ionicons name="document-text" size={20} color="#059669" />
+                <Text style={styles.fileChipText}>{selectedFile.name}</Text>
+                <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                  <Ionicons name="close-circle" size={20} color="#dc2626" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* Job Preferences Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Job Preferences</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Job Titles (comma-separated)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g., Software Engineer, Product Manager"
+                value={preferences.job_titles}
+                onChangeText={(text) => setPreferences({...preferences, job_titles: text})}
+                multiline
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Locations (comma-separated)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g., San Francisco, Remote, New York"
+                value={preferences.locations}
+                onChangeText={(text) => setPreferences({...preferences, locations: text})}
+                multiline
+              />
+            </View>
+
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, styles.halfWidth]}>
+                <Text style={styles.label}>Min Salary</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="100000"
+                  value={preferences.salary_min}
+                  onChangeText={(text) => setPreferences({...preferences, salary_min: text})}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={[styles.inputGroup, styles.halfWidth]}>
+                <Text style={styles.label}>Max Salary</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="200000"
+                  value={preferences.salary_max}
+                  onChangeText={(text) => setPreferences({...preferences, salary_max: text})}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Industries (comma-separated)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g., Technology, Finance, Healthcare"
+                value={preferences.industries}
+                onChangeText={(text) => setPreferences({...preferences, industries: text})}
+                multiline
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Startup Stages (comma-separated)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g., Series A, Series B, Growth"
+                value={preferences.startup_stages}
+                onChangeText={(text) => setPreferences({...preferences, startup_stages: text})}
+                multiline
+              />
+            </View>
+          </View>
+
+          {/* Continue Button */}
+          <TouchableOpacity 
+            style={[styles.continueButton, uploading && styles.buttonDisabled]} 
+            onPress={handleUploadAndContinue}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <>
+                <Text style={styles.continueButtonText}>Continue to Job Search</Text>
+                <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              </>
+            )}
           </TouchableOpacity>
-          {selectedFile && (
-            <View style={styles.fileChip}>
-              <Ionicons name="document-text" size={20} color="#059669" />
-              <Text style={styles.fileChipText}>{selectedFile.name}</Text>
-              <TouchableOpacity onPress={() => setSelectedFile(null)}>
-                <Ionicons name="close-circle" size={20} color="#dc2626" />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Job Preferences Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Job Preferences</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Job Titles (comma-separated)</Text>
-            <Text style={styles.input}
-              onPress={() => {
-                Alert.prompt(
-                  'Job Titles',
-                  'Enter job titles (comma-separated)',
-                  (text) => setPreferences({...preferences, job_titles: text}),
-                  'plain-text',
-                  preferences.job_titles
-                );
-              }}
-            >
-              {preferences.job_titles || 'e.g., Software Engineer, Product Manager'}
-            </Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Locations (comma-separated)</Text>
-            <Text style={styles.input}
-              onPress={() => {
-                Alert.prompt(
-                  'Locations',
-                  'Enter locations (comma-separated)',
-                  (text) => setPreferences({...preferences, locations: text}),
-                  'plain-text',
-                  preferences.locations
-                );
-              }}
-            >
-              {preferences.locations || 'e.g., San Francisco, Remote, New York'}
-            </Text>
-          </View>
-
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, styles.halfWidth]}>
-              <Text style={styles.label}>Min Salary</Text>
-              <Text style={styles.input}
-                onPress={() => {
-                  Alert.prompt(
-                    'Minimum Salary',
-                    'Enter minimum salary',
-                    (text) => setPreferences({...preferences, salary_min: text}),
-                    'numeric',
-                    preferences.salary_min
-                  );
-                }}
-              >
-                {preferences.salary_min || '$100,000'}
-              </Text>
-            </View>
-
-            <View style={[styles.inputGroup, styles.halfWidth]}>
-              <Text style={styles.label}>Max Salary</Text>
-              <Text style={styles.input}
-                onPress={() => {
-                  Alert.prompt(
-                    'Maximum Salary',
-                    'Enter maximum salary',
-                    (text) => setPreferences({...preferences, salary_max: text}),
-                    'numeric',
-                    preferences.salary_max
-                  );
-                }}
-              >
-                {preferences.salary_max || '$200,000'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Industries (comma-separated)</Text>
-            <Text style={styles.input}
-              onPress={() => {
-                Alert.prompt(
-                  'Industries',
-                  'Enter industries (comma-separated)',
-                  (text) => setPreferences({...preferences, industries: text}),
-                  'plain-text',
-                  preferences.industries
-                );
-              }}
-            >
-              {preferences.industries || 'e.g., Technology, Finance, Healthcare'}
-            </Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Startup Stages (comma-separated)</Text>
-            <Text style={styles.input}
-              onPress={() => {
-                Alert.prompt(
-                  'Startup Stages',
-                  'Enter startup stages (comma-separated)',
-                  (text) => setPreferences({...preferences, startup_stages: text}),
-                  'plain-text',
-                  preferences.startup_stages
-                );
-              }}
-            >
-              {preferences.startup_stages || 'e.g., Series A, Series B, Growth'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Continue Button */}
-        <TouchableOpacity 
-          style={[styles.continueButton, uploading && styles.buttonDisabled]} 
-          onPress={handleUploadAndContinue}
-          disabled={uploading}
-        >
-          {uploading ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <>
-              <Text style={styles.continueButtonText}>Continue to Job Search</Text>
-              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
-            </>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
